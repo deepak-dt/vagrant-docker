@@ -1,0 +1,44 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'yaml'
+vagrant_config = YAML.load_file("provisioning/virtualbox.conf.yml")
+
+Vagrant.configure("2") do |config|
+
+  config.vm.box = vagrant_config['box']
+
+  # Bring up the Devstack controller node on Virtualbox
+  config.vm.define "docker_vm" do |docker_vm|
+    #docker_vm.vm.provision :shell, path: "provisioning/setup-docker.sh"
+
+    # The following line terminates all ssh connections. Therefore Vagrant will be forced to reconnect.
+    # That's a workaround to have the docker command in the PATH
+    # Command: "docker" "ps" "-a" "-q" "--no-trunc"
+    # without it, I run into this error:
+    # Stderr: Get http:///var/run/docker.sock/v1.19/containers/json?all=1: dial unix /var/run/docker.sock: permission denied.
+    # Are you trying to connect to a TLS-enabled daemon without TLS?
+    docker_vm.vm.provision "shell", inline: "ps aux | grep 'sshd:' | awk '{print $2}' | xargs kill"
+
+
+    config.vm.provider "virtualbox" do |vb|
+      # Display the VirtualBox GUI when booting the machine
+      vb.gui = true
+
+      # Customize the amount of memory on the VM:
+      vb.memory = vagrant_config['docker_vm']['memory']
+      vb.cpus = vagrant_config['docker_vm']['cpus']
+      vb.name = "docker_vm"
+    end
+
+    config.vm.provision "docker" do |d|
+      #d.build_image "/home/vagrant/"
+      #d.pull_images "ubuntu"
+      #d.run "db-1", image: "user/mysql"
+    end
+  end
+
+  config.vm.synced_folder '.', '/vagrant'
+
+end
+
